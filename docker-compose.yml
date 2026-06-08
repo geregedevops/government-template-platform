@@ -1,0 +1,124 @@
+# Full-stack deployment for Gerege Template (backend API + Next.js BFF web,
+# Postgres, Redis). The browser only reaches `web` (behind a reverse proxy);
+# api/db/redis stay on the internal compose network (no public host ports).
+#
+# Secrets:
+#   - ./.env         → compose interpolation — gitignored. Needs:
+#                        POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB,
+#                        REDIS_PASS, APP_ORIGIN, WEB_PORT,
+#                        APP_DB_USER, APP_DB_PASSWORD  (non-superuser API role
+#                        so users-table RLS is enforced — a superuser bypasses
+#                        RLS; see backend/docs/SECURITY.md "DB role separation")
+#   - ./backend.env  → backend config file mounted into api+migrate at /app/.env
+#                      (viper reads a file; see backend.env.example) — gitignored
+#                      NOTE: chmod 644 — the distroless api/migrate run as the
+#                      nonroot user and must be able to read the mount.
+#
+# Usage:  docker compose up -d --build
+name: gerege-template-ai
+
+services:
+  db:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Non-superuser role the API connects as, so users-table RLS is enforced
+      # (a superuser bypasses RLS). Created once by the initdb script below.
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      # Runs once on first init (as the superuser) to create APP_DB_USER.
+      - ./backend/deploy/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASS}", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASS}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+
+  # One-off: apply SQL migrations + AutoMigrate, then exit.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: deploy/Dockerfile
+    entrypoint: ["/app/migrate", "-up"]
+    volumes:
+      - ./backend.env:/app/.env:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: deploy/Dockerfile
+    volumes:
+      - ./backend.env:/app/.env:ro
+    # Connect as the NON-superuser app role so users-table RLS is enforced.
+    # These env vars override DB_POSTGRE_DSN/URL from the mounted backend.env
+    # (viper AutomaticEnv: env wins over the file). migrate keeps using
+    # POSTGRES_USER from backend.env (it needs superuser for CREATE EXTENSION).
+    environment:
+      DB_POSTGRE_DSN: "host=db port=5432 user=${APP_DB_USER} password=${APP_DB_PASSWORD} dbname=${POSTGRES_DB} sslmode=disable"
+      DB_POSTGRE_URL: "postgres://${APP_DB_USER}:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "1.0"
+
+  web:
+    build:
+      context: ./frontend
+    environment:
+      NODE_ENV: production
+      # BFF → backend over the internal network (frontend appends /api/v1).
+      BACKEND_URL: http://api:8080
+      COOKIE_SECURE: "true"
+      APP_ORIGIN: ${APP_ORIGIN}
+    depends_on:
+      - api
+    # Bind to loopback only; the public reverse proxy (nginx) forwards here.
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3006}:3000"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "1.0"
+
+volumes:
+  dbdata:
