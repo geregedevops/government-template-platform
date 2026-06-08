@@ -9,7 +9,8 @@
 [![Gemini](https://img.shields.io/badge/Voice-Google%20Gemini-4285F4.svg)](https://ai.google.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Repo](https://img.shields.io/badge/GitHub-geregedevops%2Fgerege--template--ai--bpm-181717.svg?logo=github)](https://github.com/geregedevops/gerege-template-ai-bpm)
+[![Org](https://img.shields.io/badge/Org-geregedevops-181717.svg?logo=github)](https://github.com/geregedevops)
+[![Repo](https://img.shields.io/badge/GitHub-geregedevops%2Fgovernment--template--platform-181717.svg?logo=github)](https://github.com/geregedevops/government-template-platform)
 
 A production-ready, security-hardened **AI-native full-stack template** built on
 Clean Architecture. It pairs a Go (**Fiber v3 + GORM + PostgreSQL + Redis**)

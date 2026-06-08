@@ -8,7 +8,8 @@
 [![Claude](https://img.shields.io/badge/AI-Anthropic%20Claude-d97757.svg)](https://www.anthropic.com/)
 [![Gemini](https://img.shields.io/badge/Voice-Google%20Gemini-4285F4.svg)](https://ai.google.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Repo](https://img.shields.io/badge/GitHub-geregedevops%2Fgerege--template--ai--bpm-181717.svg?logo=github)](https://github.com/geregedevops/gerege-template-ai-bpm)
+[![Org](https://img.shields.io/badge/Org-geregedevops-181717.svg?logo=github)](https://github.com/geregedevops)
+[![Repo](https://img.shields.io/badge/GitHub-geregedevops%2Fgovernment--template--platform-181717.svg?logo=github)](https://github.com/geregedevops/government-template-platform)
 
 Clean Architecture зарчмаар бүтээгдсэн, аюулгүй байдлыг хатууруулсан,
 production-д бэлэн **AI-native full-stack template**. Go (**Fiber v3 + GORM +
